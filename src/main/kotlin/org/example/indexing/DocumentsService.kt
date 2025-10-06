@@ -2,7 +2,8 @@ package org.example.indexing
 
 class DocumentsService(private val fileSystem: TextFileSystem) {
 
-    private var index = DocumentIndexFactory(fileSystem).create()
+    private val documentIndexFactory = DocumentIndexFactory(fileSystem)
+    private var index = documentIndexFactory.create()
 
     fun findFileNames(word: String): Set<String> =
         index.find(word)
@@ -10,16 +11,19 @@ class DocumentsService(private val fileSystem: TextFileSystem) {
     fun add(file: TextFileSystem.File) {
         fileSystem
             .runCatching { addFile(file) }
-            .mapCatching { DocumentIndexFactory(fileSystem).create(file.name) }
+            .mapCatching { documentIndexFactory.create(file.name) }
             .onSuccess { index += it }
             .onFailure { throw it }
     }
 
     fun remove(fileName: String) {
-        DocumentIndexFactory(fileSystem)
+        documentIndexFactory
             .runCatching { create(fileName) }
-            .onSuccess { index -= it }
-            .onSuccess { fileSystem.removeFile(fileName) }
+            .mapCatching {
+                fileSystem.removeFile(fileName)
+                index - it
+            }
+            .onSuccess { index = it }
             .onFailure { throw it }
     }
 }

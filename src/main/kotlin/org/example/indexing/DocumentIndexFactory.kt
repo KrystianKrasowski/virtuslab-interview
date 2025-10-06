@@ -1,27 +1,35 @@
 package org.example.indexing
 
+private typealias MutableDocumentIndex = MutableMap<String, MutableSet<String>>
+
+private fun mutableDocumentIndexOf() = mutableMapOf<String, MutableSet<String>>()
+
 internal class DocumentIndexFactory(private val fileSystem: TextFileSystem) {
 
-    private val index = mutableMapOf<String, MutableSet<String>>()
-
     fun create(): DocumentIndex {
+        val index = mutableDocumentIndexOf()
+
         fileSystem.getFileNames()
-            .forEach { populateIndex(it) }
+            .forEach { index.populateBy(it) }
 
         return DocumentIndex(index)
     }
 
-    fun create(fileName: String): DocumentIndex {
-        populateIndex(fileName)
-        return DocumentIndex(index)
-    }
+    fun create(fileName: String): DocumentIndex =
+        mutableDocumentIndexOf()
+            .populateBy(fileName)
+            .let { DocumentIndex(it) }
 
-    private fun populateIndex(fileName: String) {
+    private fun MutableDocumentIndex.populateBy(fileName: String) = apply {
         fileSystem.getFileContent(fileName)
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
             ?.toWordsSet()
-            ?.forEach { index.computeIfAbsent(it) { mutableSetOf() }.add(fileName) }
+            ?.forEach { addFileName(it, fileName) }
+    }
+
+    private fun MutableDocumentIndex.addFileName(word: String, fileName: String) {
+        computeIfAbsent(word) { mutableSetOf() }.add(fileName)
     }
 
     // TODO: Maybe this should be more sophisticated words recognition?
