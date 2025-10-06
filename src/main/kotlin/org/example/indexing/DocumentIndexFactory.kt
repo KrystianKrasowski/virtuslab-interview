@@ -18,10 +18,13 @@ internal class DocumentIndexFactory(private val fileSystem: TextFileSystem) {
 
     private fun populateIndex(fileName: String) {
         fileSystem.getFileContent(fileName)
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
             ?.toWordsSet()
             ?.forEach { index.computeIfAbsent(it) { mutableSetOf() }.add(fileName) }
     }
 
+    // TODO: Maybe this should be more sophisticated words recognition?
     private fun String.toWordsSet() =
         split(" ")
             .map { it.lowercase() }
