@@ -8,14 +8,18 @@ class DocumentsService(private val fileSystem: TextFileSystem) {
         index.find(word)
 
     fun add(file: TextFileSystem.File) {
-        fileSystem.addFile(file)
-        val delta = DocumentIndexFactory(fileSystem).create(file.name)
-        index = index.append(delta)
+        fileSystem
+            .runCatching { addFile(file) }
+            .mapCatching { DocumentIndexFactory(fileSystem).create(file.name) }
+            .onSuccess { index += it }
+            .onFailure { throw it }
     }
 
     fun remove(fileName: String) {
-        val delta = DocumentIndexFactory(fileSystem).create(fileName)
-        index = index.remove(delta)
-        fileSystem.removeFile(fileName)
+        DocumentIndexFactory(fileSystem)
+            .runCatching { create(fileName) }
+            .onSuccess { index -= it }
+            .onSuccess { fileSystem.removeFile(fileName) }
+            .onFailure { throw it }
     }
 }
