@@ -27,9 +27,18 @@ internal data class DocumentIndex(private val index: Map<String, Set<String>>) {
     fun isEmpty(): Boolean =
         index.isEmpty()
 
+    fun countWords(): Int =
+        index.keys.size
+
+    fun listFileNames(): Set<String> =
+        index.values
+            .flatten()
+            .toSet()
+
     private fun addFileNamesAt(word: String, other: DocumentIndex) =
         index[word].orEmpty() + other.index[word].orEmpty()
 
     private fun subtractFileNamesAt(word: String, other: DocumentIndex) =
         index[word].orEmpty() - other.index[word].orEmpty()
+
 }

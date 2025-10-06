@@ -2,11 +2,14 @@ package org.example.indexing
 
 interface TextFileSystem {
 
-    data class File(val name: String, val content: String)
+    data class File(val name: String, val content: String) {
+
+        val indexable = name.isNotBlank() && content.isNotBlank()
+    }
 
     fun getFileNames(): Set<String>
 
-    fun getFileContent(name: String): String?
+    fun getFileByName(name: String): File?
 
     fun addFile(file: File)
 

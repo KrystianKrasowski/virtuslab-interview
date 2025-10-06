@@ -20,12 +20,22 @@ internal class DocumentIndexFactory(private val fileSystem: TextFileSystem) {
             .populateBy(fileName)
             .let { DocumentIndex(it) }
 
+    fun create(file: TextFileSystem.File): DocumentIndex =
+        mutableDocumentIndexOf()
+            .populateBy(file)
+            .let { DocumentIndex(it) }
+
     private fun MutableDocumentIndex.populateBy(fileName: String) = apply {
-        fileSystem.getFileContent(fileName)
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
+        fileSystem.getFileByName(fileName)
+            ?.let { populateBy(it) }
+    }
+
+    private fun MutableDocumentIndex.populateBy(file: TextFileSystem.File) = apply {
+        file.content
+            .trim()
+            .takeIf { it.isNotEmpty() }
             ?.toWordsSet()
-            ?.forEach { addFileName(it, fileName) }
+            ?.forEach { addFileName(it, file.name) }
     }
 
     private fun MutableDocumentIndex.addFileName(word: String, fileName: String) {

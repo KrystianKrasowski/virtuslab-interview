@@ -1,20 +1,44 @@
 package org.example.indexing
 
-class TextFileSystemInMemory(private val files: MutableMap<String, TextFileSystem.File>) : TextFileSystem {
+import java.io.IOException
+
+class TextFileSystemInMemory(
+    private val files: MutableMap<String, TextFileSystem.File>,
+    private val failingOnGetFileNames: Boolean = false,
+    private val failingOnGetFileByName: Boolean = false,
+    private val failingOnAddFile: Boolean = false,
+    private val failingOnRemoveFile: Boolean = false,
+) : TextFileSystem {
 
     override fun getFileNames(): Set<String> {
+        if (failingOnGetFileNames) {
+            throw IOException("Cannot get file names")
+        }
+
         return files.keys
     }
 
-    override fun getFileContent(name: String): String? {
-        return files[name]?.content
+    override fun getFileByName(name: String): TextFileSystem.File? {
+        if (failingOnGetFileByName) {
+            throw IOException("Cannot get file")
+        }
+
+        return files[name]
     }
 
     override fun addFile(file: TextFileSystem.File) {
+        if (failingOnAddFile) {
+            throw IOException("Cannot add file")
+        }
+
         files[file.name] = file
     }
 
     override fun removeFile(fileName: String) {
+        if (failingOnRemoveFile) {
+            throw IOException("Cannot remove file")
+        }
+
         files.remove(fileName)
     }
 

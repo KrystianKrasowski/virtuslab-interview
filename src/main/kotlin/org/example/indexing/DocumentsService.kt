@@ -9,21 +9,26 @@ class DocumentsService(private val fileSystem: TextFileSystem) {
         index.find(word)
 
     fun add(file: TextFileSystem.File) {
-        fileSystem
-            .runCatching { addFile(file) }
-            .mapCatching { documentIndexFactory.create(file.name) }
-            .onSuccess { index += it }
-            .onFailure { throw it }
+        if (file.indexable) {
+            val delta = documentIndexFactory.create(file)
+            fileSystem.addFile(file)
+            index += delta
+        }
     }
 
     fun remove(fileName: String) {
-        documentIndexFactory
-            .runCatching { create(fileName) }
-            .mapCatching {
-                fileSystem.removeFile(fileName)
-                index - it
-            }
-            .onSuccess { index = it }
-            .onFailure { throw it }
+        if (fileName.isNotBlank()) {
+            val delta = documentIndexFactory.create(fileName)
+            fileSystem.removeFile(fileName)
+            index -= delta
+        }
+    }
+
+    fun countIndexedWords(): Int {
+        return index.countWords()
+    }
+
+    fun listIndexedFileNames(): Set<String> {
+        return index.listFileNames()
     }
 }
