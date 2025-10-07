@@ -5,7 +5,9 @@ import assertk.assertThat
 import assertk.assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 
 class DocumentsServiceTest {
@@ -254,5 +256,36 @@ class DocumentsServiceTest {
             "eight",
             "nine"
         )
+    }
+
+    @ParameterizedTest
+    @MethodSource("punctuationTestCaseParameters")
+    fun `should produce indexable words`(content: String, expectedIndexes: Set<String>) {
+        // given
+        fileSystem = TextFileSystemInMemory(
+            mutableMapOf(
+                "doc-1.txt" to TextFileSystem.File("doc-1.txt", content),
+            )
+        )
+
+        // when
+        val words = documentsService.listIndexedWords()
+
+        // then
+        assertThat(words).isEqualTo(expectedIndexes)
+    }
+
+    companion object {
+
+        @JvmStatic
+        fun punctuationTestCaseParameters() =
+            listOf(
+                Arguments.of("one, two, three", setOf("one", "two", "three")),
+                Arguments.of("One, two. Three", setOf("one", "two", "three")),
+                Arguments.of("One1, Two2, Three3", setOf("one1", "two2", "three3")),
+                Arguments.of("on@e@, tw,o., t#r33", setOf("one", "two", "tr33")),
+                Arguments.of("o%^&*ne, !)@(, th_ee", setOf("one", "thee")),
+                Arguments.of("o{}ne::t!\$wo::3", setOf("onetwo3"))
+            )
     }
 }
