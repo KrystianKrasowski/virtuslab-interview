@@ -1,6 +1,6 @@
 package org.example.indexing
 
-class DocumentsService(private val fileSystem: TextFileSystem) {
+internal class DocumentsService(private val fileSystem: TextFileSystem) {
 
     private val documentIndexFactory = DocumentIndexFactory(fileSystem)
     private var index = documentIndexFactory.create()
