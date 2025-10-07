@@ -1,16 +1,25 @@
 package org.example.indexing
 
-internal class DocumentsService(private val fileSystem: TextFileSystem) {
+internal class DocumentsService(private val fileSystem: FileSystemSpi) : DocumentsApi {
 
     private val documentIndexFactory = DocumentIndexFactory(fileSystem)
     private var index = documentIndexFactory.create()
 
-    fun findFileNames(word: String): Set<String> =
+    override fun findFileNames(word: String): Set<String> =
         word.toIndexableWord()
             ?.let { index.find(it) }
             ?: emptySet()
 
-    fun register(file: TextFileSystem.File): DocumentsServiceResult {
+    override fun countIndexedWords(): Int =
+        index.countWords()
+
+    override fun listIndexedFileNames(): Set<String> =
+        index.listFileNames()
+
+    override fun listIndexedWords(): Set<String> =
+        index.listWords()
+
+    override fun register(file: FileSystemSpi.File): DocumentsServiceResult {
         if (!file.indexable) {
             return DocumentsServiceResult.NoOperation
         }
@@ -23,7 +32,7 @@ internal class DocumentsService(private val fileSystem: TextFileSystem) {
             .getOrElse { DocumentsServiceResult.Failure(it.message ?: "Cannot register file") }
     }
 
-    fun remove(fileName: String): DocumentsServiceResult {
+    override fun remove(fileName: String): DocumentsServiceResult {
         if (fileName.isBlank()) {
             return DocumentsServiceResult.NoOperation
         }
@@ -38,17 +47,5 @@ internal class DocumentsService(private val fileSystem: TextFileSystem) {
             .onSuccess { index -= delta }
             .map { DocumentsServiceResult.Success }
             .getOrElse { DocumentsServiceResult.Failure(it.message ?: "Cannot remove document") }
-    }
-
-    fun countIndexedWords(): Int {
-        return index.countWords()
-    }
-
-    fun listIndexedFileNames(): Set<String> {
-        return index.listFileNames()
-    }
-
-    fun listIndexedWords(): Set<String> {
-        return index.listWords()
     }
 }

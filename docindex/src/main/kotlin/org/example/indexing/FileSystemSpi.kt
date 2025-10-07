@@ -1,6 +1,6 @@
 package org.example.indexing
 
-interface TextFileSystem {
+interface FileSystemSpi {
 
     data class File(val name: String, val content: String) {
 

@@ -4,7 +4,7 @@ private typealias MutableDocumentIndex = MutableMap<String, MutableSet<String>>
 
 private fun mutableDocumentIndexOf() = mutableMapOf<String, MutableSet<String>>()
 
-internal class DocumentIndexFactory(private val fileSystem: TextFileSystem) {
+internal class DocumentIndexFactory(private val fileSystem: FileSystemSpi) {
 
     fun create(): DocumentIndex {
         val index = mutableDocumentIndexOf()
@@ -20,7 +20,7 @@ internal class DocumentIndexFactory(private val fileSystem: TextFileSystem) {
             .populateBy(fileName)
             .let { DocumentIndex(it) }
 
-    fun create(file: TextFileSystem.File): DocumentIndex =
+    fun create(file: FileSystemSpi.File): DocumentIndex =
         mutableDocumentIndexOf()
             .populateBy(file)
             .let { DocumentIndex(it) }
@@ -30,7 +30,7 @@ internal class DocumentIndexFactory(private val fileSystem: TextFileSystem) {
             ?.let { populateBy(it) }
     }
 
-    private fun MutableDocumentIndex.populateBy(file: TextFileSystem.File) = apply {
+    private fun MutableDocumentIndex.populateBy(file: FileSystemSpi.File) = apply {
         file.content
             .trim()
             .takeIf { it.isNotEmpty() }

@@ -13,14 +13,14 @@ import org.junit.jupiter.params.provider.ValueSource
 class DocumentsServiceTest {
 
     private val stubbedFileMap = mutableMapOf(
-        "doc-1.txt" to TextFileSystem.File("doc-1.txt", "Quick brown fox jumps over the lazy dog"),
-        "doc-2.txt" to TextFileSystem.File("doc-2.txt", "Lorem ipsum dolor est sit amet"),
-        "doc-3.txt" to TextFileSystem.File("doc-3.txt", "My cat is very quick")
+        "doc-1.txt" to FileSystemSpi.File("doc-1.txt", "Quick brown fox jumps over the lazy dog"),
+        "doc-2.txt" to FileSystemSpi.File("doc-2.txt", "Lorem ipsum dolor est sit amet"),
+        "doc-3.txt" to FileSystemSpi.File("doc-3.txt", "My cat is very quick")
     )
 
-    private var fileSystem = TextFileSystemInMemory(stubbedFileMap)
+    private var fileSystem = FileSystemInMemory(stubbedFileMap)
 
-    private val documentsService: DocumentsService by lazy { DocumentsService(fileSystem) }
+    private val documentsService: DocumentsApi by lazy { DocumentsApi.create(fileSystem) }
 
     @ParameterizedTest
     @ValueSource(
@@ -44,7 +44,7 @@ class DocumentsServiceTest {
     fun `should register new document`() {
         // when
         val result = documentsService.register(
-            TextFileSystem.File(
+            FileSystemSpi.File(
                 "doc-4.txt",
                 "Brand new file with some quick animal story"
             )
@@ -58,7 +58,7 @@ class DocumentsServiceTest {
     @Test
     fun `should index document after registration`() {
         // when
-        documentsService.register(TextFileSystem.File("doc-4.txt", "Brand new file with some quick animal story"))
+        documentsService.register(FileSystemSpi.File("doc-4.txt", "Brand new file with some quick animal story"))
         val files = documentsService.findFileNames("quick")
 
         // then
@@ -81,7 +81,7 @@ class DocumentsServiceTest {
         val expectedFiles = documentsService.listIndexedFileNames()
 
         // when
-        val result = documentsService.register(TextFileSystem.File(fileName, fileContent))
+        val result = documentsService.register(FileSystemSpi.File(fileName, fileContent))
 
         // when
         assertThat(result)
@@ -94,11 +94,11 @@ class DocumentsServiceTest {
     @Test
     fun `should not index document on adding file failure`() {
         // given
-        fileSystem = TextFileSystemInMemory(stubbedFileMap, failingOnAddFile = true)
+        fileSystem = FileSystemInMemory(stubbedFileMap, failingOnAddFile = true)
 
         // when
         val result = documentsService.register(
-            TextFileSystem.File("doc-5.txt", "Clever goat, not quick at all, ate my lunch")
+            FileSystemSpi.File("doc-5.txt", "Clever goat, not quick at all, ate my lunch")
         )
 
         // then
@@ -136,7 +136,7 @@ class DocumentsServiceTest {
     @Test
     fun `should not unindex document on removing file failure`() {
         // given
-        fileSystem = TextFileSystemInMemory(stubbedFileMap, failingOnRemoveFile = true)
+        fileSystem = FileSystemInMemory(stubbedFileMap, failingOnRemoveFile = true)
 
         // when
         val result = documentsService.remove("doc-3.txt")
@@ -161,7 +161,7 @@ class DocumentsServiceTest {
     @Test
     fun `should fail fast when cannot fetch file names from filesystem`() {
         // given
-        fileSystem = TextFileSystemInMemory(stubbedFileMap, failingOnGetFileNames = true)
+        fileSystem = FileSystemInMemory(stubbedFileMap, failingOnGetFileNames = true)
 
         // when
         // assumed, that this service would instantiate with application startup, invoking lazy init
@@ -171,7 +171,7 @@ class DocumentsServiceTest {
     @Test
     fun `should fail fast when cannot fetch file by name from the start`() {
         // given
-        fileSystem = TextFileSystemInMemory(stubbedFileMap, failingOnGetFileByName = true)
+        fileSystem = FileSystemInMemory(stubbedFileMap, failingOnGetFileByName = true)
 
         // when
         assertFailure { documentsService }
@@ -181,7 +181,7 @@ class DocumentsServiceTest {
     @Test
     fun `should not index text files without words`() {
         // given
-        fileSystem = TextFileSystemInMemory(mutableMapOf("doc-9.txt" to TextFileSystem.File("doc-9.txt", "")))
+        fileSystem = FileSystemInMemory(mutableMapOf("doc-9.txt" to FileSystemSpi.File("doc-9.txt", "")))
 
         // then
         assertThat(documentsService.countIndexedWords()).isEqualTo(0)
@@ -211,9 +211,9 @@ class DocumentsServiceTest {
     @Test
     fun `should index diacritic characters`() {
         // given
-        fileSystem = TextFileSystemInMemory(
+        fileSystem = FileSystemInMemory(
             mutableMapOf(
-                "doc-pl-1.txt" to TextFileSystem.File("doc-pl-1.txt", "zażółć gęślą jaźń")
+                "doc-pl-1.txt" to FileSystemSpi.File("doc-pl-1.txt", "zażółć gęślą jaźń")
             )
         )
 
@@ -231,11 +231,11 @@ class DocumentsServiceTest {
     @Test
     fun `should deduplicate words and indexed documents`() {
         // given
-        fileSystem = TextFileSystemInMemory(
+        fileSystem = FileSystemInMemory(
             mutableMapOf(
-                "doc-1.txt" to TextFileSystem.File("doc-1.txt", "one two one one two three four four"),
-                "doc-2.txt" to TextFileSystem.File("doc-2.txt", "two four nine nine one one three"),
-                "doc-3.txt" to TextFileSystem.File("doc-3.txt", "five six one two one seven eight seven"),
+                "doc-1.txt" to FileSystemSpi.File("doc-1.txt", "one two one one two three four four"),
+                "doc-2.txt" to FileSystemSpi.File("doc-2.txt", "two four nine nine one one three"),
+                "doc-3.txt" to FileSystemSpi.File("doc-3.txt", "five six one two one seven eight seven"),
             )
         )
 
@@ -262,9 +262,9 @@ class DocumentsServiceTest {
     @MethodSource("punctuationTestCaseParameters")
     fun `should produce indexable words`(content: String, expectedIndexes: Set<String>) {
         // given
-        fileSystem = TextFileSystemInMemory(
+        fileSystem = FileSystemInMemory(
             mutableMapOf(
-                "doc-1.txt" to TextFileSystem.File("doc-1.txt", content),
+                "doc-1.txt" to FileSystemSpi.File("doc-1.txt", content),
             )
         )
 
