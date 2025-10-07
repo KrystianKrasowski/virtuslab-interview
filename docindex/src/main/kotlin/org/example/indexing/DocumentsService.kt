@@ -6,7 +6,7 @@ internal class DocumentsService(private val fileSystem: TextFileSystem) {
     private var index = documentIndexFactory.create()
 
     fun findFileNames(word: String): Set<String> =
-        index.find(word)
+        index.find(word.toIndexableWord())
 
     fun register(file: TextFileSystem.File): DocumentsServiceResult {
         if (!file.indexable) {

@@ -45,6 +45,7 @@ internal class DocumentIndexFactory(private val fileSystem: TextFileSystem) {
     // TODO: Maybe this should be more sophisticated words recognition?
     private fun String.toWordsSet() =
         split(" ")
-            .map { it.lowercase() }
+            .map { it.toIndexableWord() }
             .toSet()
 }
+

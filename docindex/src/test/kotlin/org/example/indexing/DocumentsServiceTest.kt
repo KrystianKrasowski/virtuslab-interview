@@ -6,6 +6,7 @@ import assertk.assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 
 class DocumentsServiceTest {
 
@@ -19,10 +20,18 @@ class DocumentsServiceTest {
 
     private val documentsService: DocumentsService by lazy { DocumentsService(fileSystem) }
 
-    @Test
-    fun `should return document file names by word`() {
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            "quick",
+            "quick   ",
+            "   quick",
+            "   quick   ",
+        ]
+    )
+    fun `should return document file names by word`(fileName: String) {
         // when
-        val files = documentsService.findFileNames("quick")
+        val files = documentsService.findFileNames(fileName)
 
         // then
         assertThat(files)
@@ -194,5 +203,25 @@ class DocumentsServiceTest {
 
         assertThat(documentsService.countIndexedWords())
             .isEqualTo(expectedWordsNumber)
+    }
+
+    @Test
+    fun `should index diacritic characters`() {
+        // given
+        fileSystem = TextFileSystemInMemory(
+            mutableMapOf(
+                "doc-pl-1.txt" to TextFileSystem.File("doc-pl-1.txt", "zażółć gęślą jaźń")
+            )
+        )
+
+        // when
+        val files1 = documentsService.findFileNames("zażółć")
+        val files2 = documentsService.findFileNames("gęślą")
+        val files3 = documentsService.findFileNames("jaźń")
+
+        // then
+        assertThat(files1).contains("doc-pl-1.txt")
+        assertThat(files2).contains("doc-pl-1.txt")
+        assertThat(files3).contains("doc-pl-1.txt")
     }
 }
