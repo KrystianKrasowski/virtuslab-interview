@@ -2,16 +2,10 @@ package org.example.indexing
 
 import assertk.assertFailure
 import assertk.assertThat
-import assertk.assertions.contains
-import assertk.assertions.containsExactlyInAnyOrder
-import assertk.assertions.doesNotContain
-import assertk.assertions.hasMessage
-import assertk.assertions.isEmpty
-import assertk.assertions.isEqualTo
-import assertk.assertions.isFailure
-import assertk.assertions.isNull
+import assertk.assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 
 class DocumentsServiceTest {
@@ -34,6 +28,71 @@ class DocumentsServiceTest {
         // then
         assertThat(files)
             .containsExactlyInAnyOrder("doc-1.txt", "doc-3.txt")
+    }
+
+    @Test
+    fun `should register new document`() {
+        // when
+        val result = documentsService.register(
+            TextFileSystem.File(
+                "doc-4.txt",
+                "Brand new file with some quick animal story"
+            )
+        )
+
+        // then
+        assertThat(result)
+            .isSuccess()
+
+        // when
+        val files = documentsService.findFileNames("quick")
+
+        // then
+        assertThat(files)
+            .contains("doc-4.txt")
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        value = [
+            "doc-4.txt,''",
+            "doc-4.txt,'      '",
+            "'', Brand new file with some quick animal story",
+            "'     ', Brand new file with some quick animal story",
+        ],
+        emptyValue = ""
+    )
+    fun `should not register non-indexable document`(fileName: String, fileContent: String) {
+        // given
+        val expectedFiles = documentsService.listIndexedFileNames()
+
+        // when
+        val result = documentsService.register(TextFileSystem.File(fileName, fileContent))
+
+        // when
+        assertThat(result)
+            .isNoOperation()
+
+        assertThat(documentsService.listIndexedFileNames())
+            .isEqualTo(expectedFiles)
+    }
+
+    @Test
+    fun `should not index document on register failure`() {
+        // given
+        fileSystem = TextFileSystemInMemory(stubbedFileMap, failingOnAddFile = true)
+
+        // when
+        val result = documentsService.register(
+            TextFileSystem.File("doc-5.txt", "Clever goat, not quick at all, ate my lunch")
+        )
+
+        // then
+        assertThat(result)
+            .isFailure()
+
+        assertThat(documentsService.listIndexedFileNames())
+            .doesNotContain("doc-5.txt")
     }
 
     @Test
@@ -132,24 +191,6 @@ class DocumentsServiceTest {
         assertFailure { documentsService }
     }
 
-    @Test
-    fun `should not index file on add failure`() {
-        // given
-        fileSystem = TextFileSystemInMemory(stubbedFileMap, failingOnAddFile = true)
-
-        // when
-        val result = documentsService.runCatching {
-            add(TextFileSystem.File("doc-5.txt", "Clever goat, not quick at all, ate my lunch"))
-        }
-
-        // then
-        assertThat(result)
-            .isFailure()
-            .hasMessage("Cannot add file")
-
-        assertThat(documentsService.listIndexedFileNames())
-            .doesNotContain("doc-5.txt")
-    }
 
     @Test
     fun `should not unindex file on remove failure`() {
