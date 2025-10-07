@@ -41,6 +41,7 @@ fun main() {
     println("    -r - remove document")
     println("    -ls - list indexed file names")
     println("    -li - list stored indexes")
+    println("Any other would query the file list by given input word")
 
 
     while (true) {
