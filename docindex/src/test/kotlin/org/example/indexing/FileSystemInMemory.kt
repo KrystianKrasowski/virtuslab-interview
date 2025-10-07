@@ -41,16 +41,4 @@ class FileSystemInMemory(
 
         files.remove(fileName)
     }
-
-    companion object {
-
-        fun ofDefault() =
-            FileSystemInMemory(
-                mutableMapOf(
-                    "doc-1.txt" to FileSystemSpi.File("doc-1.txt", "Quick brown fox jumps over the lazy dog"),
-                    "doc-2.txt" to FileSystemSpi.File("doc-2.txt", "Lorem ipsum dolor est sit amet"),
-                    "doc-3.txt" to FileSystemSpi.File("doc-3.txt", "My cat is very quick")
-                )
-            )
-    }
 }
