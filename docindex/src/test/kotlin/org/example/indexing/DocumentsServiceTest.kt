@@ -1,0 +1,291 @@
+package org.example.indexing
+
+import assertk.assertFailure
+import assertk.assertThat
+import assertk.assertions.*
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.params.provider.ValueSource
+
+class DocumentsServiceTest {
+
+    private val stubbedFileMap = mutableMapOf(
+        "doc-1.txt" to FileSystemSpi.File("doc-1.txt", "Quick brown fox jumps over the lazy dog"),
+        "doc-2.txt" to FileSystemSpi.File("doc-2.txt", "Lorem ipsum dolor est sit amet"),
+        "doc-3.txt" to FileSystemSpi.File("doc-3.txt", "My cat is very quick")
+    )
+
+    private var fileSystem = FileSystemInMemory(stubbedFileMap)
+
+    private val documentsService: DocumentsApi by lazy { DocumentsApi.create(fileSystem) }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            "quick",
+            "quick   ",
+            "   quick",
+            "   quick   ",
+        ]
+    )
+    fun `should return document file names by word`(fileName: String) {
+        // when
+        val files = documentsService.findFileNames(fileName)
+
+        // then
+        assertThat(files)
+            .containsExactlyInAnyOrder("doc-1.txt", "doc-3.txt")
+    }
+
+    @Test
+    fun `should register new document`() {
+        // when
+        val result = documentsService.register(
+            FileSystemSpi.File(
+                "doc-4.txt",
+                "Brand new file with some quick animal story"
+            )
+        )
+
+        // then
+        assertThat(result)
+            .isSuccess()
+    }
+
+    @Test
+    fun `should index document after registration`() {
+        // when
+        documentsService.register(FileSystemSpi.File("doc-4.txt", "Brand new file with some quick animal story"))
+        val files = documentsService.findFileNames("quick")
+
+        // then
+        assertThat(files)
+            .contains("doc-4.txt")
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        value = [
+            "doc-4.txt,''",
+            "doc-4.txt,'      '",
+            "'', Brand new file with some quick animal story",
+            "'     ', Brand new file with some quick animal story",
+        ],
+        emptyValue = ""
+    )
+    fun `should not register non-indexable document`(fileName: String, fileContent: String) {
+        // given
+        val expectedFiles = documentsService.listIndexedFileNames()
+
+        // when
+        val result = documentsService.register(FileSystemSpi.File(fileName, fileContent))
+
+        // when
+        assertThat(result)
+            .isNoOperation()
+
+        assertThat(documentsService.listIndexedFileNames())
+            .isEqualTo(expectedFiles)
+    }
+
+    @Test
+    fun `should not index document on adding file failure`() {
+        // given
+        fileSystem = FileSystemInMemory(stubbedFileMap, failingOnAddFile = true)
+
+        // when
+        val result = documentsService.register(
+            FileSystemSpi.File("doc-5.txt", "Clever goat, not quick at all, ate my lunch")
+        )
+
+        // then
+        assertThat(result)
+            .isFailure()
+
+        assertThat(documentsService.listIndexedFileNames())
+            .doesNotContain("doc-5.txt")
+    }
+
+    @Test
+    fun `should remove document by file name`() {
+        // when
+        val result = documentsService.remove("doc-2.txt")
+
+        // then
+        assertThat(result)
+            .isSuccess()
+
+        assertThat(documentsService.listIndexedFileNames())
+            .doesNotContain("doc-2.txt")
+    }
+
+    @Test
+    fun `should unindex document after file remove`() {
+        // when
+        documentsService.remove("doc-2.txt")
+        val files = documentsService.findFileNames("ipsum")
+
+        // then
+        assertThat(files)
+            .doesNotContain("doc-2.txt")
+    }
+
+    @Test
+    fun `should not unindex document on removing file failure`() {
+        // given
+        fileSystem = FileSystemInMemory(stubbedFileMap, failingOnRemoveFile = true)
+
+        // when
+        val result = documentsService.remove("doc-3.txt")
+
+        // then
+        assertThat(result)
+            .isFailure()
+
+        assertThat(documentsService.listIndexedFileNames())
+            .contains("doc-3.txt")
+    }
+
+    @Test
+    fun `should return no files if word has not been found`() {
+        // when
+        val files = documentsService.findFileNames("unknown")
+
+        // then
+        assertThat(files).isEmpty()
+    }
+
+    @Test
+    fun `should fail fast when cannot fetch file names from filesystem`() {
+        // given
+        fileSystem = FileSystemInMemory(stubbedFileMap, failingOnGetFileNames = true)
+
+        // when
+        // assumed, that this service would instantiate with application startup, invoking lazy init
+        assertFailure { documentsService }
+    }
+
+    @Test
+    fun `should fail fast when cannot fetch file by name from the start`() {
+        // given
+        fileSystem = FileSystemInMemory(stubbedFileMap, failingOnGetFileByName = true)
+
+        // when
+        assertFailure { documentsService }
+    }
+
+
+    @Test
+    fun `should not index text files without words`() {
+        // given
+        fileSystem = FileSystemInMemory(mutableMapOf("doc-9.txt" to FileSystemSpi.File("doc-9.txt", "")))
+
+        // then
+        assertThat(documentsService.countIndexedWords()).isEqualTo(0)
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["", "    ", "unknown-file.txt"])
+    fun `should do nothing on non-existing file removal`(fileName: String) {
+        // given
+        val expectedFiles = documentsService.listIndexedFileNames()
+        val expectedWordsNumber = documentsService.countIndexedWords()
+
+        // when
+        val result = documentsService.remove(fileName)
+
+        // then
+        assertThat(result)
+            .isNoOperation()
+
+        assertThat(documentsService.listIndexedFileNames())
+            .isEqualTo(expectedFiles)
+
+        assertThat(documentsService.countIndexedWords())
+            .isEqualTo(expectedWordsNumber)
+    }
+
+    @Test
+    fun `should index diacritic characters`() {
+        // given
+        fileSystem = FileSystemInMemory(
+            mutableMapOf(
+                "doc-pl-1.txt" to FileSystemSpi.File("doc-pl-1.txt", "zażółć gęślą jaźń")
+            )
+        )
+
+        // when
+        val files1 = documentsService.findFileNames("zażółć")
+        val files2 = documentsService.findFileNames("gęślą")
+        val files3 = documentsService.findFileNames("jaźń")
+
+        // then
+        assertThat(files1).contains("doc-pl-1.txt")
+        assertThat(files2).contains("doc-pl-1.txt")
+        assertThat(files3).contains("doc-pl-1.txt")
+    }
+
+    @Test
+    fun `should deduplicate words and indexed documents`() {
+        // given
+        fileSystem = FileSystemInMemory(
+            mutableMapOf(
+                "doc-1.txt" to FileSystemSpi.File("doc-1.txt", "one two one one two three four four"),
+                "doc-2.txt" to FileSystemSpi.File("doc-2.txt", "two four nine nine one one three"),
+                "doc-3.txt" to FileSystemSpi.File("doc-3.txt", "five six one two one seven eight seven"),
+            )
+        )
+
+        // when
+        val files = documentsService.listIndexedFileNames()
+        val words = documentsService.listIndexedWords()
+
+        // then
+        assertThat(files).containsExactlyInAnyOrder("doc-1.txt", "doc-2.txt", "doc-3.txt")
+        assertThat(words).containsExactlyInAnyOrder(
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight",
+            "nine"
+        )
+    }
+
+    @ParameterizedTest
+    @MethodSource("punctuationTestCaseParameters")
+    fun `should produce indexable words`(content: String, expectedIndexes: Set<String>) {
+        // given
+        fileSystem = FileSystemInMemory(
+            mutableMapOf(
+                "doc-1.txt" to FileSystemSpi.File("doc-1.txt", content),
+            )
+        )
+
+        // when
+        val words = documentsService.listIndexedWords()
+
+        // then
+        assertThat(words).isEqualTo(expectedIndexes)
+    }
+
+    companion object {
+
+        @JvmStatic
+        fun punctuationTestCaseParameters() =
+            listOf(
+                Arguments.of("one, two, three", setOf("one", "two", "three")),
+                Arguments.of("One, two. Three", setOf("one", "two", "three")),
+                Arguments.of("One1, Two2, Three3", setOf("one1", "two2", "three3")),
+                Arguments.of("on@e@, tw,o., t#r33", setOf("one", "two", "tr33")),
+                Arguments.of("o%^&*ne, !)@(, th_ee", setOf("one", "thee")),
+                Arguments.of("o{}ne::t!\$wo::3", setOf("onetwo3"))
+            )
+    }
+}
