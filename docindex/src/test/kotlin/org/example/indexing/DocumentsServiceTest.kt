@@ -224,4 +224,34 @@ class DocumentsServiceTest {
         assertThat(files2).contains("doc-pl-1.txt")
         assertThat(files3).contains("doc-pl-1.txt")
     }
+
+    @Test
+    fun `should deduplicate words and indexed documents`() {
+        // given
+        fileSystem = TextFileSystemInMemory(
+            mutableMapOf(
+                "doc-1.txt" to TextFileSystem.File("doc-1.txt", "one two one one two three four four"),
+                "doc-2.txt" to TextFileSystem.File("doc-2.txt", "two four nine nine one one three"),
+                "doc-3.txt" to TextFileSystem.File("doc-3.txt", "five six one two one seven eight seven"),
+            )
+        )
+
+        // when
+        val files = documentsService.listIndexedFileNames()
+        val words = documentsService.listIndexedWords()
+
+        // then
+        assertThat(files).containsExactlyInAnyOrder("doc-1.txt", "doc-2.txt", "doc-3.txt")
+        assertThat(words).containsExactlyInAnyOrder(
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight",
+            "nine"
+        )
+    }
 }

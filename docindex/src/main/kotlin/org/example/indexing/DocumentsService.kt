@@ -41,4 +41,8 @@ internal class DocumentsService(private val fileSystem: TextFileSystem) {
     fun listIndexedFileNames(): Set<String> {
         return index.listFileNames()
     }
+
+    fun listIndexedWords(): Set<String> {
+        return index.listWords()
+    }
 }

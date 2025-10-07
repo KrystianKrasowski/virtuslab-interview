@@ -35,6 +35,9 @@ internal data class DocumentIndex(private val index: Map<String, Set<String>>) {
             .flatten()
             .toSet()
 
+    fun listWords(): Set<String> =
+        index.keys
+
     private fun addFileNamesAt(word: String, other: DocumentIndex) =
         index[word].orEmpty() + other.index[word].orEmpty()
 
