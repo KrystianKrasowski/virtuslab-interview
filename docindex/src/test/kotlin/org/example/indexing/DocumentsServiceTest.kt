@@ -185,14 +185,15 @@ class DocumentsServiceTest {
         assertThat(documentsService.countIndexedWords()).isEqualTo(0)
     }
 
-    @Test
-    fun `should do nothing on blank filename removal`() {
+    @ParameterizedTest
+    @ValueSource(strings = ["", "    ", "unknown-file.txt"])
+    fun `should do nothing on non-existing file removal`(fileName: String) {
         // given
         val expectedFiles = documentsService.listIndexedFileNames()
         val expectedWordsNumber = documentsService.countIndexedWords()
 
         // when
-        val result = documentsService.remove("")
+        val result = documentsService.remove(fileName)
 
         // then
         assertThat(result)

@@ -28,6 +28,10 @@ internal class DocumentsService(private val fileSystem: TextFileSystem) {
 
         val delta = documentIndexFactory.create(fileName)
 
+        if (delta.isEmpty()) {
+            return DocumentsServiceResult.NoOperation
+        }
+
         return runCatching { fileSystem.removeFile(fileName) }
             .onSuccess { index -= delta }
             .map { DocumentsServiceResult.Success }
