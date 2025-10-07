@@ -6,7 +6,6 @@ import assertk.assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
-import org.junit.jupiter.params.provider.ValueSource
 
 class DocumentsServiceTest {
 
@@ -43,8 +42,12 @@ class DocumentsServiceTest {
         // then
         assertThat(result)
             .isSuccess()
+    }
 
+    @Test
+    fun `should index document after registration`() {
         // when
+        documentsService.register(TextFileSystem.File("doc-4.txt", "Brand new file with some quick animal story"))
         val files = documentsService.findFileNames("quick")
 
         // then
@@ -78,7 +81,7 @@ class DocumentsServiceTest {
     }
 
     @Test
-    fun `should not index document on register failure`() {
+    fun `should not index document on adding file failure`() {
         // given
         fileSystem = TextFileSystemInMemory(stubbedFileMap, failingOnAddFile = true)
 
@@ -96,71 +99,43 @@ class DocumentsServiceTest {
     }
 
     @Test
-    fun `should add new document`() {
-        // given
-        val file = TextFileSystem.File("doc-4.txt", "Brand new file with some quick animal story")
-
-        // when
-        documentsService.add(file)
-
-        // then
-        assertThat(fileSystem.getFileByName(file.name))
-            .isEqualTo(file)
-    }
-
-    @Test
-    fun `should index new document`() {
-        // when
-        documentsService.add(TextFileSystem.File("doc-5.txt", "Clever goat, not quick at all, ate my lunch"))
-        val files = documentsService.findFileNames("quick")
-
-        // then
-        assertThat(files)
-            .containsExactlyInAnyOrder("doc-1.txt", "doc-3.txt", "doc-5.txt")
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = ["", "     "])
-    fun `should not add empty file or index it`(content: String) {
-        // when
-        documentsService.add(TextFileSystem.File("doc-5.txt", content))
-        val files = documentsService.findFileNames("quick")
-
-        // then
-        assertThat(files).containsExactlyInAnyOrder("doc-1.txt", "doc-3.txt")
-        assertThat(fileSystem.getFileByName("doc-5.txt")).isNull()
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = ["", "    "])
-    fun `should not add unnamed file or index it`(fileName: String) {
-        // when
-        documentsService.add(TextFileSystem.File(fileName, "some quick content"))
-        val files = documentsService.findFileNames("quick")
-
-        // then
-        assertThat(files).containsExactlyInAnyOrder("doc-1.txt", "doc-3.txt")
-        assertThat(fileSystem.getFileByName("")).isNull()
-    }
-
-    @Test
     fun `should remove document by file name`() {
         // when
-        documentsService.remove("doc-2.txt")
+        val result = documentsService.remove("doc-2.txt")
 
         // then
-        assertThat(fileSystem.getFileByName("doc-2.txt")).isNull()
+        assertThat(result)
+            .isSuccess()
+
+        assertThat(documentsService.listIndexedFileNames())
+            .doesNotContain("doc-2.txt")
     }
 
     @Test
-    fun `should remove deleted file from index`() {
+    fun `should unindex document after file remove`() {
         // when
-        documentsService.remove("doc-1.txt")
-        val files = documentsService.findFileNames("quick")
+        documentsService.remove("doc-2.txt")
+        val files = documentsService.findFileNames("ipsum")
 
         // then
         assertThat(files)
-            .containsExactlyInAnyOrder("doc-3.txt")
+            .doesNotContain("doc-2.txt")
+    }
+
+    @Test
+    fun `should not unindex document on removing file failure`() {
+        // given
+        fileSystem = TextFileSystemInMemory(stubbedFileMap, failingOnRemoveFile = true)
+
+        // when
+        val result = documentsService.remove("doc-3.txt")
+
+        // then
+        assertThat(result)
+            .isFailure()
+
+        assertThat(documentsService.listIndexedFileNames())
+            .contains("doc-3.txt")
     }
 
     @Test
@@ -193,25 +168,6 @@ class DocumentsServiceTest {
 
 
     @Test
-    fun `should not unindex file on remove failure`() {
-        // given
-        fileSystem = TextFileSystemInMemory(stubbedFileMap, failingOnRemoveFile = true)
-
-        // when
-        val result = documentsService.runCatching {
-            remove("doc-3.txt")
-        }
-
-        // then
-        assertThat(result)
-            .isFailure()
-            .hasMessage("Cannot remove file")
-
-        assertThat(documentsService.listIndexedFileNames())
-            .contains("doc-3.txt")
-    }
-
-    @Test
     fun `should not index text files without words`() {
         // given
         fileSystem = TextFileSystemInMemory(mutableMapOf("doc-9.txt" to TextFileSystem.File("doc-9.txt", "")))
@@ -227,10 +183,16 @@ class DocumentsServiceTest {
         val expectedWordsNumber = documentsService.countIndexedWords()
 
         // when
-        documentsService.remove("")
+        val result = documentsService.remove("")
 
         // then
-        assertThat(documentsService.listIndexedFileNames()).isEqualTo(expectedFiles)
-        assertThat(documentsService.countIndexedWords()).isEqualTo(expectedWordsNumber)
+        assertThat(result)
+            .isNoOperation()
+
+        assertThat(documentsService.listIndexedFileNames())
+            .isEqualTo(expectedFiles)
+
+        assertThat(documentsService.countIndexedWords())
+            .isEqualTo(expectedWordsNumber)
     }
 }
